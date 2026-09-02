@@ -4,17 +4,40 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-export default function LoginPage() {
+const ROLES = [
+  { value: "user", label: "User" },
+  { value: "employee", label: "Employee" },
+  { value: "admin", label: "Admin" },
+];
+
+/** The signup API returns either a plain message or a zod `format()` object. */
+function readError(error: unknown): string {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    for (const value of Object.values(error as Record<string, unknown>)) {
+      if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+      const nested = (value as { _errors?: string[] })?._errors;
+      if (nested?.length) return nested[0];
+    }
+  }
+  return "Signup failed";
+}
+
+export default function SignupPage() {
   const router = useRouter();
   const [form, setForm] = useState({
-    email: "govind@gmail.com",
-    password: "123456",
+    name: "",
+    email: "",
+    password: "",
+    role: "user",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
@@ -24,7 +47,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -33,11 +56,11 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Login failed");
+        setError(readError(data.error));
         return;
       }
 
-      router.push("/dashboard");
+      router.push("/login");
     } catch {
       setError("Something went wrong. Try again.");
     } finally {
@@ -66,13 +89,30 @@ export default function LoginPage() {
       </div>
 
       <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-        Welcome back
+        Create your account
       </h1>
       <p className="mt-2 text-sm text-slate-500">
-        Log in to pick up where your team left off.
+        Start organising your tasks and projects in minutes.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-slate-700">
+            Full name
+          </span>
+          <input
+            name="name"
+            type="text"
+            placeholder="Jane Cooper"
+            value={form.name}
+            onChange={handleChange}
+            autoComplete="name"
+            minLength={2}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+            required
+          />
+        </label>
+
         <label className="flex flex-col gap-1.5">
           <span className="text-[13px] font-medium text-slate-700">Email</span>
           <input
@@ -95,10 +135,10 @@ export default function LoginPage() {
             <input
               name="password"
               type={showPassword ? "text" : "password"}
-              placeholder="Enter your password"
+              placeholder="At least 6 characters"
               value={form.password}
               onChange={handleChange}
-              autoComplete="current-password"
+              autoComplete="new-password"
               minLength={6}
               className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pr-16 pl-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
               required
@@ -113,6 +153,23 @@ export default function LoginPage() {
           </div>
         </label>
 
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-slate-700">Role</span>
+          <select
+            name="role"
+            value={form.role}
+            onChange={handleChange}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+            required
+          >
+            {ROLES.map((role) => (
+              <option key={role.value} value={role.value}>
+                {role.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
         {error && (
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-600">
             {error}
@@ -124,17 +181,17 @@ export default function LoginPage() {
           disabled={loading}
           className="mt-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading ? "Logging in..." : "Log in"}
+          {loading ? "Creating account..." : "Create account"}
         </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-slate-500">
-        Don&apos;t have an account?{" "}
+        Already have an account?{" "}
         <Link
-          href="/signup"
+          href="/login"
           className="font-medium text-blue-600 hover:text-blue-700"
         >
-          Sign up
+          Log in
         </Link>
       </p>
     </div>
