@@ -14,6 +14,7 @@ interface UserRow {
     name:string;
     email:string;
     password:string;
+    role:string;
 }
 export async function POST(req:NextRequest){
     try{
@@ -26,7 +27,7 @@ export async function POST(req:NextRequest){
 
         const {email,password} = result.data;
         // find user 
-        const user =db.prepare("SELECT id ,name,email,password FROM users WHERE email =?")
+        const user =db.prepare("SELECT id ,name,email,password,role FROM users WHERE email =?")
         .get(email) as UserRow | undefined;
         if(!user){
             return NextResponse.json({error:'Invalid email or password'},{status:401});
@@ -38,7 +39,7 @@ export async function POST(req:NextRequest){
         }
         // create jwt token
         const token = signToken({userId:user.id,email:user.email});
-        const response= NextResponse.json({message:'Login successful',user:{id:user.id,name:user.name,email:user.email},token},{status:200},);
+        const response= NextResponse.json({message:'Login successful',user:{id:user.id,name:user.name,email:user.email,role:user.role},token},{status:200},);
         response.cookies.set('token',token,{
             httpOnly:true,
             secure:process.env.NODE_ENV === 'production',

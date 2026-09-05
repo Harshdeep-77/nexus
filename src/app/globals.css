@@ -25,36 +25,42 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.br{
-  border:2px solid red;
+.br {
+  border: 2px solid red;
 }
 
 /* Ambient motion for the auth showcase panel */
 @keyframes nexus-blob {
+
   0%,
   100% {
     transform: translate3d(0, 0, 0) scale(1);
   }
+
   50% {
     transform: translate3d(0, -26px, 0) scale(1.08);
   }
 }
 
 @keyframes nexus-float {
+
   0%,
   100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-8px);
   }
 }
 
 @keyframes nexus-caret {
+
   0%,
   49% {
     opacity: 1;
   }
+
   50%,
   100% {
     opacity: 0;
@@ -74,6 +80,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .anim-blob,
   .anim-float,
   .anim-caret {

@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:init": "npx tsx src/lib/backend/db.ts",
+    "migrate": "npx tsx src/lib/backend/migrate.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

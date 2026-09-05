@@ -16,7 +16,8 @@ db.exec(`
     email TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    role TEXT DEFAULT 'user'
+    role TEXT DEFAULT 'user',
+    isActive INTEGER DEFAULT 1
   );
 
   CREATE TABLE IF NOT EXISTS todos (
@@ -26,17 +27,19 @@ db.exec(`
     status TEXT DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_by INTEGER NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+ isActive INTEGER DEFAULT 1,  
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
-   CREATE TABLE IF NOT EXISTS Project (
+   CREATE TABLE IF NOT EXISTS project (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     status  TEXT DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_by TEXT NOT NULL,
+    created_by INTEGER NOT NULL,
+    isActive INTEGER DEFAULT 1,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 

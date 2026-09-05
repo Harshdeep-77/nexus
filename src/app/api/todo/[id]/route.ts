@@ -24,7 +24,7 @@ export async function PUT(req:NextRequest,{ params}:{params:Promise<{id:number}>
         const {id} = await params;
         const body =await req.json();
         const result = updateTodoSchema.safeParse(body);
-        console.log('Parsed result:', result); // Log the parsed result for debugging
+        
         if(!result.success){
             return NextResponse.json({error:result.error.issues[0].message},{status:400});
         }

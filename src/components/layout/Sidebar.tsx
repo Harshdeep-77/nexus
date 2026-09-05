@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 const navItems = [
   { name: "Dashboard", href: "/dashboard" },
   { name: "Tasks", href: "/dashboard/tasks" },
-  { name: "Profile", href: "/profile" },
+  { name: "Project", href: "/project" },
   { name: "Logout", href: "/logout" },
 ];
 
@@ -49,15 +49,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       <div
         aria-hidden
         onClick={onClose}
-        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden ${
-          open ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden ${open ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
       />
 
       <div
-        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col bg-[#0F1629] text-white transition-transform duration-300 ease-out md:static md:translate-x-0 ${
-          open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col bg-[#0F1629] text-white transition-transform duration-300 ease-out md:static md:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         {/* Logo */}
         <div
@@ -103,9 +101,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <li
               key={item.name}
               onClick={() => navigate(item.href)}
-              className={`p-2 rounded cursor-pointer ${
-                pathname === item.href ? "bg-blue-600" : "hover:bg-gray-700"
-              }`}
+              className={`p-2 rounded cursor-pointer ${pathname === item.href ? "bg-blue-600" : "hover:bg-gray-700"
+                }`}
             >
               {item.name}
             </li>
