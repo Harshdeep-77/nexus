@@ -52,3 +52,36 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
 }
+
+export  async function GET(req: NextRequest, { params }: { params: Promise<{ id: number }> }) {
+  try{
+    const user = getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const {id}=await params;
+    const project =db.prepare("SELECT * FROM project WHERE id=? AND user_id=?")
+                     .get(id,user.userId) as Project | undefined;
+
+    if(!project) {
+      return NextResponse.json({ message: 'Project not found' }, { status: 404 });
+    }    
+    
+    const task =db.prepare("SELECT * FROM project_task WHERE project_id=?").all(id);
+
+      // 6. Combine in JS: attach the tasks array onto the project object
+      const projectWithTask ={...project,task};
+
+      return NextResponse.json(
+        {
+          message:"Project fetch successfully",
+          code:200,
+          data:projectWithTask
+        }
+      )
+    
+  }catch (error) {
+    console.error('Error fetching project:', error);
+    return NextResponse.json({ error: 'Internal Server Error', message: error }, { status: 500 });
+  }
+}

@@ -18,6 +18,18 @@ interface Project {
   created_at: string;
   created_by: number;
 }
+interface Task {
+  id: number;
+  project_id: number;
+  title: string;
+  description: string | null;
+  status: "pending" | "in-progress" | "completed";
+  priority: "low" | "medium" | "high";
+  assigned_to: number | null;
+  created_by: number;
+  created_at: string;
+  isActive: number; // SQLite stores 0 / 1
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,10 +40,45 @@ export async function GET(req: NextRequest) {
         { status: 401 },
       );
     }
+    // 1:fetch project
     const projects = db
-      .prepare("SELECT * FROM project WHERE user_id = ?")
+      .prepare("SELECT * FROM project WHERE user_id = ? ORDER BY created_at DESC")
       .all(user.userId) as Project[];
-    return NextResponse.json({ projects }, { status: 200 });
+
+    //edgecase:no project  --> return early, skip the task query entirly
+    if (projects.length === 0) {
+      return NextResponse.json({ status: 200, message: "No project found", projects: [] })
+    }
+    //2 collect the project id
+    const projectId = projects.map((p) => p.id);
+
+    // 3 build one placeholder for per id :"?","?"
+    const placeholder = projectId.map(() => "?").join(",");
+
+    // 4 one query for  all tasks belongs  to any of those projects
+
+    const allTasks = db.prepare(`SELECT * FROM project_task WHERE project_id IN (${placeholder})`)
+      .all(...projectId) as Task[]
+    // 5 group task by project id --> map-->{1==>{taskA,taskB}}
+
+    const taskByProject = new Map<number, Task[]>();
+
+    for (const task of allTasks) {
+      const list = taskByProject.get(task.project_id) ?? [];
+      list.push(task)
+      taskByProject.set(task.project_id, list);
+    }
+    // 6 Attach each task wit project  (emapty array if  it has none)
+
+    const projectsWithTask = projects.map((project) => ({ ...project, tasks: taskByProject.get(project.id) ?? [] }))
+
+    return NextResponse.json(
+      {
+        message: "Project fetch successfully with task",
+        code: 200,
+        data: projectsWithTask
+      }
+    );
   } catch (error) {
     return NextResponse.json(
       { error: "Internal Server Error", message: error },
