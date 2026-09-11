@@ -1,0 +1,133 @@
+import { NextRequest, NextResponse } from "next/server";
+import db from "@/lib/backend/db";
+import { z } from "zod";
+import { getUserFromRequest } from "@/lib/backend/getUserFromRequest";
+
+const projectSchema = z.object({
+  title: z.string().min(1, "Project title is required"),
+  description: z.string().min(1, "Project description is required"),
+  status: z.enum(["pending", "in-progress", "completed"]).default("pending"),
+});
+
+interface Project {
+  id: number;
+  user_id: number;
+  title: string;
+  description: string;
+  status: "pending" | "in-progress" | "completed";
+  created_at: string;
+  created_by: number;
+}
+interface Task {
+  id: number;
+  project_id: number;
+  title: string;
+  description: string | null;
+  status: "pending" | "in-progress" | "completed";
+  priority: "low" | "medium" | "high";
+  assigned_to: number | null;
+  created_by: number;
+  created_at: string;
+  isActive: number; // SQLite stores 0 / 1
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const user = getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not authorized" },
+        { status: 401 },
+      );
+    }
+    // 1:fetch project
+    const projects = db
+      .prepare("SELECT * FROM project WHERE user_id = ? ORDER BY created_at DESC")
+      .all(user.userId) as Project[];
+
+    //edgecase:no project  --> return early, skip the task query entirly
+    if (projects.length === 0) {
+      return NextResponse.json({ status: 200, message: "No project found", projects: [] })
+    }
+    //2 collect the project id
+    const projectId = projects.map((p) => p.id);
+
+    // 3 build one placeholder for per id :"?","?"
+    const placeholder = projectId.map(() => "?").join(",");
+
+    // 4 one query for  all tasks belongs  to any of those projects
+
+    const allTasks = db.prepare(`SELECT * FROM project_task WHERE project_id IN (${placeholder})`)
+      .all(...projectId) as Task[]
+    // 5 group task by project id --> map-->{1==>{taskA,taskB}}
+
+    const taskByProject = new Map<number, Task[]>();
+
+    for (const task of allTasks) {
+      const list = taskByProject.get(task.project_id) ?? [];
+      list.push(task)
+      taskByProject.set(task.project_id, list);
+    }
+    // 6 Attach each task wit project  (emapty array if  it has none)
+
+    const projectsWithTask = projects.map((project) => ({ ...project, tasks: taskByProject.get(project.id) ?? [] }))
+
+    return NextResponse.json(
+      {
+        message: "Project fetch successfully with task",
+        code: 200,
+        data: projectsWithTask
+      }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Internal Server Error", message: error },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const user = getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const body = await req.json();
+    const result = projectSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error.issues[0].message },
+        { status: 400 },
+      );
+    }
+    const { title, description, status } = result.data;
+
+    const insertProject = db.prepare(
+      "INSERT INTO project (user_id,title,description,status,created_by) VALUES (?,?,?,?,?)",
+    );
+    const resultProject = insertProject.run(
+      user.userId,
+      title,
+      description,
+      status,
+      user.userId,
+    );
+    return NextResponse.json({
+      message: "Project created",
+      status: 200,
+      project: {
+        id: resultProject.lastInsertRowid,
+        title,
+        description,
+        status,
+        created_by: user.userId,
+      },
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Internal Server Error", message: error },
+      { status: 500 },
+    );
+  }
+}
