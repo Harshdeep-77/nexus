@@ -3,6 +3,7 @@ import { z } from "zod";
 import db from "@/lib/backend/db";
 import { getUserFromRequest } from "@/lib/backend/getUserFromRequest";
 import { getOwnedProject } from "@/lib/backend/helper/getOwnedProject";
+import { getActiveUser } from "@/lib/backend/helper/getActiveUser";
 
 // every field optional — a partial update
 const updateTaskSchema = z.object({
@@ -27,6 +28,47 @@ interface Task {
   isActive: number; // SQLite stores 0 / 1
 }
 
+/**
+ * Both checks every handler here needs: the caller owns the project, and the
+ * task exists inside that project and isn't soft-deleted.
+ */
+function findTask(projectId: string, taskId: string, userId: number) {
+  if (!getOwnedProject(projectId, userId)) return { error: "Project not found" as const };
+
+  const task = db
+    .prepare("SELECT * FROM project_task WHERE id = ? AND project_id = ? AND isActive = 1")
+    .get(taskId, projectId) as Task | undefined;
+
+  if (!task) return { error: "Task not found" as const };
+  return { task };
+}
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string; taskId: string }> },
+) {
+  try {
+    const user = getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id: projectId, taskId } = await params;
+    const found = findTask(projectId, taskId, user.userId);
+    if (found.error) {
+      return NextResponse.json({ error: found.error }, { status: 404 });
+    }
+
+    return NextResponse.json(
+      { message: "Task fetched successfully", data: found.task },
+      { status: 200 },
+    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> },
@@ -38,21 +80,11 @@ export async function PUT(
     }
 
     const { id: projectId, taskId } = await params;
-
-    // check 1: does the caller own this project?
-    console.log("Checking ownership of project", projectId, "for user", user.userId);
-    if (!getOwnedProject(projectId, user.userId)) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    const found = findTask(projectId, taskId, user.userId);
+    if (found.error) {
+      return NextResponse.json({ error: found.error }, { status: 404 });
     }
-
-    // check 2: does this task exist AND live in that project?
-    const existingTask = db
-      .prepare("SELECT * FROM project_task WHERE id = ? AND project_id = ?")
-      .get(taskId, projectId) as Task | undefined;
-
-    if (!existingTask) {
-      return NextResponse.json({ message: "Task not found" }, { status: 404 });
-    }
+    const existingTask = found.task;
 
     const body = await req.json();
     const result = updateTaskSchema.safeParse(body);
@@ -77,6 +109,10 @@ export async function PUT(
     const updatedAssignedTo =
       assigned_to === undefined ? existingTask.assigned_to : assigned_to;
 
+    if (updatedAssignedTo != null && !getActiveUser(updatedAssignedTo)) {
+      return NextResponse.json({ error: "Assigned user not found" }, { status: 400 });
+    }
+
     // boolean -> number, because better-sqlite3 can't bind booleans
     const updatedIsActive =
       isActive === undefined ? existingTask.isActive : Number(isActive);
@@ -99,18 +135,44 @@ export async function PUT(
 
     const updated = db
       .prepare("SELECT * FROM project_task WHERE id = ?")
-      .get(taskId);
+      .get(taskId) as Task;
 
     return NextResponse.json(
-      { message: "Task updated successfully" },
+      { message: "Task updated successfully", data: updated },
       { status: 200 },
     );
   } catch (error) {
     console.error(error);
     return NextResponse.json(
-      { error: "Internal Server Error", message: (error as Error).message },
+      { error: "Internal Server Error" },
       { status: 500 },
     );
   }
 }
 
+// Soft delete, matching the project route: flip isActive, every read filters it out.
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string; taskId: string }> },
+) {
+  try {
+    const user = getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id: projectId, taskId } = await params;
+    const found = findTask(projectId, taskId, user.userId);
+    if (found.error) {
+      return NextResponse.json({ error: found.error }, { status: 404 });
+    }
+
+    db.prepare("UPDATE project_task SET isActive = 0 WHERE id = ? AND project_id = ?")
+      .run(taskId, projectId);
+
+    return NextResponse.json({ message: "Task deleted successfully" }, { status: 200 });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}

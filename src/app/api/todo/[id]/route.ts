@@ -14,7 +14,7 @@ interface Todo {
     status: 'pending' | 'completed' | 'not_completed';
 }
 
-export async function PUT(req:NextRequest,{ params}:{params:Promise<{id:number}>}){
+export async function PUT(req:NextRequest,{ params}:{params:Promise<{id:string}>}){
     try{
    
         const user = getUserFromRequest(req);
@@ -45,7 +45,7 @@ export async function PUT(req:NextRequest,{ params}:{params:Promise<{id:number}>
     
 }
 
-export async function DELETE(req:NextRequest,{ params}:{params:Promise<{id:number}>}){
+export async function DELETE(req:NextRequest,{ params}:{params:Promise<{id:string}>}){
     const user = getUserFromRequest(req);
     if(!user){
         return NextResponse.json({error:'Unauthorized'},{status:401});

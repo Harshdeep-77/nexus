@@ -4,10 +4,9 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 
 const navItems = [
-  { name: "Dashboard", href: "/dashboard" },
-  { name: "Tasks", href: "/dashboard/tasks" },
-  { name: "Project", href: "/project" },
-  { name: "Logout", href: "/logout" },
+  { name: "Dashboard", href: "/dashboard", exact: true },
+  { name: "Tasks", href: "/dashboard/tasks", exact: false },
+  { name: "Projects", href: "/dashboard/projects", exact: false },
 ];
 
 type SidebarProps = {
@@ -41,6 +40,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   function navigate(href: string) {
     router.push(href);
     onClose();
+  }
+
+  // There is no /logout page — the cookie is cleared by the API, then we leave.
+  async function logout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      onClose();
+      router.push("/login");
+      router.refresh();
+    }
   }
 
   return (
@@ -97,17 +107,34 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </button>
         </div>
         <ul className="flex flex-col space-y-2 p-4">
-          {navItems.map((item) => (
-            <li
-              key={item.name}
-              onClick={() => navigate(item.href)}
-              className={`p-2 rounded cursor-pointer ${pathname === item.href ? "bg-blue-600" : "hover:bg-gray-700"
-                }`}
-            >
-              {item.name}
-            </li>
-          ))}
+          {navItems.map((item) => {
+            // Nested routes (a project board) keep their section highlighted.
+            const active = item.exact
+              ? pathname === item.href
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+            return (
+              <li
+                key={item.name}
+                onClick={() => navigate(item.href)}
+                className={`p-2 rounded cursor-pointer ${active ? "bg-blue-600" : "hover:bg-gray-700"
+                  }`}
+              >
+                {item.name}
+              </li>
+            );
+          })}
         </ul>
+
+        <div className="mt-auto p-4">
+          <button
+            type="button"
+            onClick={logout}
+            className="w-full rounded p-2 text-left transition-colors hover:bg-gray-700"
+          >
+            Logout
+          </button>
+        </div>
       </div>
     </>
   );
